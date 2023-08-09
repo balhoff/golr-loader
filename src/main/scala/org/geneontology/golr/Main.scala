@@ -19,7 +19,7 @@ import scala.util.Using
 
 object Main extends ZIOAppDefault {
 
-  private val oio = "http://www.geneontology.org/formats/oboInOwl"
+  val oio = "http://www.geneontology.org/formats/oboInOwl"
   val oioExactSynonym = ResourceFactory.createProperty(s"$oio#hasExactSynonym")
   val oioBroadSynonym = ResourceFactory.createProperty(s"$oio#hasBroadSynonym")
   val oioNarrowSynonym = ResourceFactory.createProperty(s"$oio#hasNarrowSynonym")
@@ -41,7 +41,8 @@ object Main extends ZIOAppDefault {
       stream = ZStream.fromIterable(terms)
         .mapZIOParUnordered(20) { term =>
           indexTerm(term, dataset)
-        }.collect { case Some(record) => record }
+        }
+        .collect { case Some(record) => record }
         .grouped(1000)
         .map { records =>
           basicRequest.post(solrEndpoint)
@@ -50,9 +51,7 @@ object Main extends ZIOAppDefault {
         .mapZIOParUnordered(4) { request =>
           request.send(httpClient)
         }
-      _ <- stream.foreach {
-        response => ZIO.attempt(println(response))
-      }
+      _ <- stream.runDrain
     } yield ()
 
   def openTDBDataset(path: String): Task[Dataset] =
@@ -75,7 +74,7 @@ object Main extends ZIOAppDefault {
     }
 
   def queryTerms(dataset: Dataset): Task[List[Resource]] = {
-    val query = {
+    val query =
       sparql"""
         SELECT ?term
         WHERE {
@@ -83,11 +82,10 @@ object Main extends ZIOAppDefault {
           FILTER(isIRI(?term))
         }
         """
-    }
     runSelect(query, dataset)(_.getResource("term"))
   }
 
-  def indexTerm(term: Resource, dataset: Dataset): Task[Option[Record]] = {
+  def indexTerm(term: Resource, dataset: Dataset): Task[Option[Record]] =
     for {
       maybeProps <- getProperties(term, dataset)
       record <- ZIO.foreach(maybeProps) { props =>
@@ -97,10 +95,9 @@ object Main extends ZIOAppDefault {
         } yield Record.create(props, synonyms, superclasses)
       }
     } yield record
-  }
 
   def getProperties(term: Resource, dataset: Dataset): Task[Option[Term]] = {
-    val query = {
+    val query =
       sparql"""
         SELECT DISTINCT ?label ?def ?namespace ?obsolete
         WHERE {
@@ -116,7 +113,6 @@ object Main extends ZIOAppDefault {
           BIND(COALESCE(?deprecated, false) AS ?obsolete)
         }
         """
-    }
     runSelect(query, dataset) { qs =>
       Term(
         iri = term.getURI,
@@ -129,19 +125,18 @@ object Main extends ZIOAppDefault {
   }
 
   def getSynonyms(term: Resource, dataset: Dataset): Task[List[String]] = {
-    val query = {
+    val query =
       sparql"""
         SELECT DISTINCT ?synonym
         WHERE {
           $term $oioExactSynonym|$oioBroadSynonym|$oioNarrowSynonym|$oioRelatedSynonym ?synonym .
         }
         """
-    }
     runSelect(query, dataset)(_.getLiteral("synonym").getLexicalForm)
   }
 
   def getSuperclasses(term: Resource, dataset: Dataset): Task[List[Labeled]] = {
-    val query = {
+    val query =
       sparql"""
         SELECT ?superclass (MIN(?rdfsLabel) AS ?label)
         WHERE {
@@ -151,7 +146,6 @@ object Main extends ZIOAppDefault {
         }
         GROUP BY ?superclass
         """
-    }
     runSelect(query, dataset) { qs =>
       Labeled(
         qs.getResource("superclass").getURI,

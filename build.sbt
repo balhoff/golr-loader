@@ -19,7 +19,7 @@ lazy val sttpVersion = "3.8.16"
 
 libraryDependencies ++= {
   Seq(
-    "org.apache.jena"               %  "apache-jena-libs" % "4.5.0",
+    "org.apache.jena"               %  "apache-jena-libs" % "4.5.0", // newer Jena versions have problems with too many file locks
     "com.softwaremill.sttp.client3" %% "zio"              % sttpVersion,
     "com.softwaremill.sttp.client3" %% "zio-json"         % sttpVersion,
     "dev.zio"                       %% "zio"              % zioVersion,
