@@ -57,10 +57,6 @@ object Main extends ZIOAppDefault {
           basicRequest.post(solrEndpoint)
             .body(records)
         }
-        .map { req =>
-          println(req)
-          req
-        }
         .mapZIOParUnordered(4) { request =>
           request.send(httpClient)
         }
